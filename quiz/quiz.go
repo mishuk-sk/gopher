@@ -78,20 +78,20 @@ func readQuiz(f io.Reader) []problem {
 	r := csv.NewReader(f)
 	records, err := r.ReadAll()
 	if err != nil {
-		log.Fatalf("Error reading records: %s\n", err)
+		log.Fatalf("Error reading records. Err - %s\n", err)
 	}
-	problems := make([]problem, len(records))
-	for i, record := range records {
+	problems := make([]problem, 0, len(records))
+	for _, record := range records {
 		if len(record) != 2 {
 			log.Printf("Record (%v) is not valid length\n", record)
 			continue
 		}
 		answer := strings.TrimSpace(record[1])
 		answer = strings.ToLower(answer)
-		problems[i] = problem{
+		problems = append(problems, problem{
 			Q: record[0],
 			A: answer,
-		}
+		})
 	}
 	return problems
 }
