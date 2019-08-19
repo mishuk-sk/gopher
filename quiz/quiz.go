@@ -62,16 +62,14 @@ func handleQuiz(quiz []problem, timer *time.Timer) int {
 }
 
 func readInput(r *bufio.Reader, answers chan<- string) {
-	go func() {
-		ans, err := r.ReadString('\n')
-		if err != nil {
-			fmt.Println("Program ran into an internal err.")
-			log.Fatalf("Can't read from stdin. Err: %s", err)
-		}
-		ans = strings.TrimSpace(ans[:len(ans)-1])
-		ans = strings.ToLower(ans)
-		answers <- ans
-	}()
+	ans, err := r.ReadString('\n')
+	if err != nil {
+		fmt.Println("Program ran into an internal err.")
+		log.Fatalf("Can't read from stdin. Err: %s", err)
+	}
+	ans = strings.TrimSpace(ans[:len(ans)-1])
+	ans = strings.ToLower(ans)
+	answers <- ans
 }
 
 func readQuiz(f io.Reader) []problem {
