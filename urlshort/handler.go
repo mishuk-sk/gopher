@@ -51,14 +51,14 @@ func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 }
 
 type pathURL struct {
-	P string `yaml:"path"`
-	U string `yaml:"url"`
+	Path string `yaml:"path"`
+	URL  string `yaml:"url"`
 }
 
 func buildMap(sl []pathURL) map[string]string {
 	m := make(map[string]string)
 	for _, v := range sl {
-		m[v.P] = v.U
+		m[v.Path] = v.URL
 	}
 	return m
 }
