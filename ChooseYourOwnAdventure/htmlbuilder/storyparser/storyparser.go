@@ -28,3 +28,16 @@ func ParseStory(data []byte) ([]Arc, error) {
 	}
 	return story, nil
 }
+
+// MappedStory parses json file and returns Label: Arc map pairs
+func MappedStory(data []byte) (map[string]Arc, error) {
+	story, err := ParseStory(data)
+	if err != nil {
+		return nil, err
+	}
+	mappedStory := make(map[string]Arc)
+	for _, arc := range story {
+		mappedStory[arc.Label] = arc
+	}
+	return mappedStory, nil
+}
