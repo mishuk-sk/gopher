@@ -36,7 +36,10 @@ func TestMapHandler(t *testing.T) {
 		handle(w, req)
 		url, err := w.Result().Location()
 		if err != nil {
-			t.Fatalf("Can't handle test %v. No location header in response: %s\n", test, err)
+			if test.redirect {
+				t.Errorf("Path %s was not redirected  to %s\n", test.input, test.outputPath)
+			}
+			continue
 		}
 		path := url.Scheme + "://" + url.Host + url.Path
 		if path != test.outputPath && url.Path != test.outputPath {
