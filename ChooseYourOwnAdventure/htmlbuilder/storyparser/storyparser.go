@@ -8,16 +8,16 @@ import (
 // Arc defines whole story arc with title, paragraphs,
 //options and arc uniq label
 type Arc struct {
-	Label      string
-	Title      string
-	Paragraphs []string
-	Options    []Option
+	Label      string   `json:"-"`
+	Title      string   `json:"title"`
+	Paragraphs []string `json:"story"`
+	Options    []Option `json:"options,omitempty"`
 }
 
 // Option defines choices for next steps in story
 type Option struct {
-	Text string
-	Link string
+	Text string `json:"text,omitempty"`
+	Link string `json:"arc,omitempty"`
 }
 
 // ParseStory parses correct json file into slice of Arc
@@ -31,13 +31,10 @@ func ParseStory(data []byte) ([]Arc, error) {
 
 // MappedStory parses json file and returns Label: Arc map pairs
 func MappedStory(data []byte) (map[string]Arc, error) {
-	story, err := ParseStory(data)
-	if err != nil {
-		return nil, err
+	story := make(map[string]Arc)
+	if err := json.Unmarshal(data, &story); err != nil {
+		return nil, fmt.Errorf("Error unmarshalling json to story object. %s", err)
 	}
-	mappedStory := make(map[string]Arc)
-	for _, arc := range story {
-		mappedStory[arc.Label] = arc
-	}
-	return mappedStory, nil
+
+	return story, nil
 }
