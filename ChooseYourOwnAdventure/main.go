@@ -44,7 +44,9 @@ func main() {
 		Handler:      router,
 	}
 
-	startServer(&server, idleConnsClosed)
+	if err := startServer(&server, idleConnsClosed); err != nil {
+		panic(err)
+	}
 	<-idleConnsClosed
 }
 
@@ -61,7 +63,6 @@ func createHandler(arc storyparser.Arc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-type", "text/html")
 		w.Write(page)
-		w.WriteHeader(http.StatusOK)
 	}
 }
 
