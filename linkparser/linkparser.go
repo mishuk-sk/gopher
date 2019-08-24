@@ -53,6 +53,6 @@ func readATag(n *html.Node) Link {
 		}
 	}
 	dfs(n)
-	link.Text = text.String()
+	link.Text = strings.TrimSpace(text.String())
 	return link
 }
