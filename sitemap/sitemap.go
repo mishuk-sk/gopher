@@ -20,17 +20,21 @@ func Map(url string) ([]byte, error) {
 	var wg sync.WaitGroup
 	wg.Add(cpu)
 	var counter int64
+	//TODO consider not using goroutines at all
+	//TODO handle external and internal links
 	for i := 0; i < cpu; i++ {
 		go func() {
 			for atomic.LoadInt64(&counter) < 3 {
 				select {
 				case u := <-ch:
+					//FIXME concurrent map access
 					pages[u] = true
 					p, err := http.Get(u)
 					if err == nil {
 						links, _ := linkparser.Parse(p.Body)
 						go func() {
 							for _, l := range links {
+								//FIXME concurrent map access
 								if _, ok := pages[l.Href]; !ok {
 									ch <- l.Href
 								}
