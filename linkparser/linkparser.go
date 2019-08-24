@@ -60,7 +60,7 @@ func readATag(n *html.Node) Link {
 func getText(n *html.Node, buf *strings.Builder) {
 	if n.Type == html.TextNode {
 		buf.WriteString(n.Data)
-	} else if n.Type != html.ElementNode {
+	} else if n.Type != html.ElementNode && n.Type != html.DocumentNode {
 		return
 	} else {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
