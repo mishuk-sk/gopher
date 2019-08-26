@@ -2,57 +2,126 @@ package sitemap
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net/http"
-	"runtime"
-	"sync"
-	"sync/atomic"
+	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/mishuk-sk/gopher/linkparser"
 )
 
 // Map returns site map as xml for provided url
-func Map(url string) ([]byte, error) {
-	pages := make(map[string]bool)
-	cpu := runtime.NumCPU()
-	shutdown := make(chan struct{})
-	ch := make(chan string, cpu)
-	ch <- url
-	var wg sync.WaitGroup
-	wg.Add(cpu)
-	var counter int64
-	//TODO consider not using goroutines at all
-	//TODO handle external and internal links
-	for i := 0; i < cpu; i++ {
-		go func() {
-			for atomic.LoadInt64(&counter) < 3 {
-				select {
-				case u := <-ch:
-					//FIXME concurrent map access
-					pages[u] = true
-					p, err := http.Get(u)
-					if err == nil {
-						links, _ := linkparser.Parse(p.Body)
-						go func() {
-							for _, l := range links {
-								//FIXME concurrent map access
-								if _, ok := pages[l.Href]; !ok {
-									ch <- l.Href
-								}
-							}
-						}()
-					}
-
-					atomic.AddInt64(&counter, 1)
-				case <-shutdown:
-					return
-				}
-			}
-			wg.Done()
-		}()
+func Map(url string, depth int) ([]byte, error) {
+	pages, err := pagesMap(url, depth)
+	if err != nil {
+		return nil, err
 	}
-	wg.Wait()
+	urls := make([]string, 0, len(pages))
 	for k := range pages {
-		fmt.Println(k)
+		urls = append(urls, k)
+	}
+	sort.Strings(urls)
+	for _, u := range urls {
+		fmt.Println(u)
 	}
 	return nil, nil
+}
+
+func pagesMap(url string, depth int) (map[string]struct{}, error) {
+	seen := make(map[string]struct{})
+	var q map[string]struct{}
+	nq := map[string]struct{}{
+		url: struct{}{},
+	}
+	host, err := getHost(url)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < depth; i++ {
+		if len(nq) == 0 {
+			break
+		}
+		q, nq = nq, make(map[string]struct{})
+
+		for u := range q {
+			if _, ok := seen[u]; ok {
+				continue
+			}
+			seen[u] = struct{}{}
+			links := get(u, host)
+			for _, link := range links {
+				nq[link] = struct{}{}
+			}
+		}
+
+	}
+	return seen, nil
+}
+
+func getHost(u string) (string, error) {
+	r, err := http.NewRequest("GET", u, nil)
+	if err != nil {
+		return "", fmt.Errorf("Error performing request to url %s. Err - %s", u, err)
+	}
+	baseURL := &url.URL{
+		Scheme: r.URL.Scheme,
+		Host:   r.URL.Host,
+	}
+	return baseURL.String(), nil
+}
+
+func get(u, base string) []string {
+	resp, err := http.Get(u)
+	if err != nil {
+		log.Printf("Error getting page from %s. Err - %s\n", u, err)
+		return []string{}
+	}
+	defer resp.Body.Close()
+	links, err := constructLinks(resp.Body, base)
+	if err != nil {
+		log.Printf("Error getting links for page on %s. Err - %s\n", u, err)
+		return []string{}
+	}
+	return filter(links, withPrefix(base))
+}
+
+func constructLinks(r io.Reader, base string) ([]string, error) {
+	links, err := linkparser.Parse(r)
+	if err != nil {
+		return nil, err
+	}
+	var resp []string
+	for _, link := range links {
+		resp = append(resp, href(link.Href, base))
+	}
+	return resp, nil
+}
+
+func href(l, base string) string {
+	switch {
+	case strings.HasPrefix(l, "/"):
+		return base + l
+	case strings.HasPrefix(l, "http"):
+		return l
+	default:
+		return ""
+	}
+}
+
+func filter(links []string, keepFn func(string) bool) []string {
+	var resp []string
+	for _, link := range links {
+		if keepFn(link) {
+			resp = append(resp, link)
+		}
+	}
+	return resp
+}
+
+func withPrefix(prefix string) func(string) bool {
+	return func(link string) bool {
+		return strings.HasPrefix(link, prefix)
+	}
 }
