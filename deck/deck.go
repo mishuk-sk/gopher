@@ -86,6 +86,20 @@ func DefaultSort(deck []Card) {
 	})
 }
 
+//Filter filters cards according to provided keep function
+func Filter(keep func([]Card) func(Card) bool) func([]Card) []Card {
+	return func(cards []Card) []Card {
+		var deck []Card
+		k := keep(cards)
+		for _, c := range cards {
+			if k(c) {
+				deck = append(deck, c)
+			}
+		}
+		return deck
+	}
+}
+
 func absRank(c Card) int {
 	return int(c.Suit)*int(maxRank) + int(c.Rank)
 }
