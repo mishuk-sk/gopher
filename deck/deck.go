@@ -63,8 +63,13 @@ func (c Card) String() string {
 	return fmt.Sprintf("%s of %ss", c.Rank, c.Suit)
 }
 
+//Option defines function to be an option
+//to be executed after deck construction
+type Option func([]Card) []Card
+
 //New creates new deck of 52 cards sorted in default order.
-func New() []Card {
+//If options provided, they will be executed on deck
+func New(options ...Option) []Card {
 	deck := make([]Card, 0, 52)
 	for _, i := range suits {
 		for j := minRank; j <= maxRank; j++ {
@@ -73,6 +78,9 @@ func New() []Card {
 				Rank: j,
 			})
 		}
+	}
+	for _, opt := range options {
+		deck = opt(deck)
 	}
 	return deck
 }
@@ -90,7 +98,7 @@ func DefaultSort(deck []Card) {
 }
 
 //Filter returns function to filter cards according to provided keep function
-func Filter(keep func(Card) bool) func([]Card) []Card {
+func Filter(keep func(Card) bool) Option {
 	return func(cards []Card) []Card {
 		var deck []Card
 		for _, c := range cards {
@@ -103,7 +111,7 @@ func Filter(keep func(Card) bool) func([]Card) []Card {
 }
 
 //AddJokers returns function to add n jokers to the end of deck
-func AddJokers(n int) func([]Card) []Card {
+func AddJokers(n int) Option {
 	return func(cards []Card) []Card {
 		deck := make([]Card, len(cards), len(cards)+n)
 		copy(deck, cards)
@@ -118,7 +126,7 @@ func AddJokers(n int) func([]Card) []Card {
 }
 
 //AddDecks returns function to add specified (n) number of decks to existing deck
-func AddDecks(n int) func([]Card) []Card {
+func AddDecks(n int) Option {
 	return func(cards []Card) []Card {
 		for i := 0; i < n; i++ {
 			cards = append(cards, New()...)
