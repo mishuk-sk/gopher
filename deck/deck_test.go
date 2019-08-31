@@ -45,3 +45,19 @@ func TestDefaultSort(t *testing.T) {
 		}
 	}
 }
+
+func TestFilter(t *testing.T) {
+	d := deck.New()
+	filter := deck.Filter(func(card deck.Card) bool {
+		if card.Rank == deck.Ace || card.Suit == deck.Heart {
+			return false
+		}
+		return true
+	})
+	d = filter(d)
+	for _, c := range d {
+		if c.Rank == deck.Ace || c.Suit == deck.Heart {
+			t.Fatalf("Expected %s to be filtered out", c)
+		}
+	}
+}
