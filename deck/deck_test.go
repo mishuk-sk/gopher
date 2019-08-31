@@ -75,3 +75,15 @@ func TestAddJokers(t *testing.T) {
 		}
 	}
 }
+
+func TestAddDecks(t *testing.T) {
+	tests := []int{1, 2, 5}
+	for i, n := range tests {
+		d := deck.New()
+		f := deck.AddDecks(n)
+		d = f(d)
+		if len(d) != 52*(n+1) {
+			t.Fatalf("Test %d:\n\tExpected to have %d cards in the deck but got %d\n", i, 52*(n+1), len(d))
+		}
+	}
+}
