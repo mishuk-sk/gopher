@@ -61,3 +61,17 @@ func TestFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestAddJokers(t *testing.T) {
+	tests := []int{1, 3, 10}
+	for i, n := range tests {
+		d := deck.New()
+		f := deck.AddJokers(n)
+		d = f(d)
+		for j := 1; j <= n; j++ {
+			if pos := len(d) - j; d[pos].Rank != deck.Joker {
+				t.Fatalf("Expected to see Joker on position %d in test %d but got %s\n", pos, i, d[pos])
+			}
+		}
+	}
+}
