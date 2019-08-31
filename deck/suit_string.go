@@ -8,18 +8,18 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Spades-0]
-	_ = x[Diamonds-1]
-	_ = x[Clubs-2]
-	_ = x[Hearts-3]
+	_ = x[Spade-0]
+	_ = x[Diamond-1]
+	_ = x[Club-2]
+	_ = x[Heart-3]
 }
 
-const _Suit_name = "SpadesDiamondsClubsHearts"
+const _Suit_name = "SpadeDiamondClubHeart"
 
-var _Suit_index = [...]uint8{0, 6, 14, 19, 25}
+var _Suit_index = [...]uint8{0, 5, 12, 16, 21}
 
 func (i Suit) String() string {
-	if i < 0 || i >= Suit(len(_Suit_index)-1) {
+	if i >= Suit(len(_Suit_index)-1) {
 		return "Suit(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _Suit_name[_Suit_index[i]:_Suit_index[i+1]]

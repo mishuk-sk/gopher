@@ -29,7 +29,7 @@ const _Rank_name = "JokerAceTwoThreeFourFiveSixSevenEightNineTenJakeQueenKing"
 var _Rank_index = [...]uint8{0, 5, 8, 11, 16, 20, 24, 27, 32, 37, 41, 44, 48, 53, 57}
 
 func (i Rank) String() string {
-	if i < 0 || i >= Rank(len(_Rank_index)-1) {
+	if i >= Rank(len(_Rank_index)-1) {
 		return "Rank(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _Rank_name[_Rank_index[i]:_Rank_index[i+1]]
