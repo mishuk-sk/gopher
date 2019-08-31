@@ -57,6 +57,9 @@ type Card struct {
 }
 
 func (c Card) String() string {
+	if c.Rank == Joker {
+		return "Joker"
+	}
 	return fmt.Sprintf("%s of %ss", c.Rank, c.Suit)
 }
 
@@ -86,7 +89,7 @@ func DefaultSort(deck []Card) {
 	})
 }
 
-//Filter filters cards according to provided keep function
+//Filter returns function to filter cards according to provided keep function
 func Filter(keep func(Card) bool) func([]Card) []Card {
 	return func(cards []Card) []Card {
 		var deck []Card
@@ -94,6 +97,21 @@ func Filter(keep func(Card) bool) func([]Card) []Card {
 			if keep(c) {
 				deck = append(deck, c)
 			}
+		}
+		return deck
+	}
+}
+
+//AddJokers returns function to add n jokers to the end of deck
+func AddJokers(n int) func([]Card) []Card {
+	return func(cards []Card) []Card {
+		deck := make([]Card, len(cards), len(cards)+n)
+		copy(deck, cards)
+		for i := 0; i < n; i++ {
+			deck = append(deck, Card{
+				Rank: Joker,
+				Suit: Spade,
+			})
 		}
 		return deck
 	}
