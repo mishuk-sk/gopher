@@ -2,7 +2,9 @@ package deck
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
+	"time"
 )
 
 //go:generate stringer -type=Suit
@@ -83,6 +85,15 @@ func New(options ...Option) []Card {
 		deck = opt(deck)
 	}
 	return deck
+}
+
+//Shuffle randomply changes cards positions in the deck
+func Shuffle(cards []Card) []Card {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	r.Shuffle(len(cards), func(i, j int) {
+		cards[i], cards[j] = cards[j], cards[i]
+	})
+	return cards
 }
 
 //Sort sorts deck in place using provided less(i, j int)bool function
