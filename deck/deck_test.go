@@ -33,3 +33,15 @@ func TestSort(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultSort(t *testing.T) {
+	d := deck.New()
+	deck.DefaultSort(d)
+	for i := deck.Spade; i <= deck.Heart; i++ {
+		for j := deck.Ace; j <= deck.King; j++ {
+			if c := d[int(i-deck.Spade)*13+int(j-deck.Ace)]; c.Suit != i || c.Rank != j {
+				t.Fatalf("Expected deck to be properly sorted\n Deck:%v\n", d)
+			}
+		}
+	}
+}
