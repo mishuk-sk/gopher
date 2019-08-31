@@ -117,6 +117,16 @@ func AddJokers(n int) func([]Card) []Card {
 	}
 }
 
+//AddDecks returns function to add specified (n) number of decks to existing deck
+func AddDecks(n int) func([]Card) []Card {
+	return func(cards []Card) []Card {
+		for i := 0; i < n; i++ {
+			cards = append(cards, New()...)
+		}
+		return cards
+	}
+}
+
 func absRank(c Card) int {
 	return int(c.Suit)*int(maxRank) + int(c.Rank)
 }
