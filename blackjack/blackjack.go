@@ -1,124 +1,75 @@
 package blackjack
 
 import (
-	"context"
-	"math/rand"
-	"time"
+	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/mishuk-sk/gopher/blackjack/player"
 	"github.com/mishuk-sk/gopher/deck"
 )
 
-type player struct {
-	cards []deck.Card
-	name  string
-	table chan map[string][]deck.Card
-	end   <-chan struct{}
-	hit   func(string, context.Context) bool
-}
+type score map[uuid.UUID][]deck.Card
 
-func NewPlayer(name string, hit func(string, context.Context) bool) *player {
-	return &player{
-		name:  name,
-		hit:   hit,
-		table: make(chan map[string][]deck.Card),
+func (s *score) init(players map[uuid.UUID]*player.Player) {
+	m := make(map[uuid.UUID][]deck.Card, len(players))
+	for id := range players {
+		m[id] = make([]deck.Card, 0, 2)
 	}
 }
-func (p *player) OnChange(f func(map[string][]deck.Card)) {
-	go func() {
-		for {
-			select {
-			case t := <-p.table:
-				f(t)
-			case <-p.end:
-				return
-			}
+
+func (s score) add(id uuid.UUID, card deck.Card) (uuid.UUID, error) {
+	if _, ok := s[id]; !ok {
+		return uuid.Nil, fmt.Errorf("Can't find user with id %s", id)
+	}
+	s[id] = append(s[id], card)
+	sc := calcScore(s[id])
+	if sc == 21 {
+		return id, nil
+	}
+	return uuid.Nil, nil
+}
+
+func calcScore(cards []deck.Card) int {
+	aces := 0
+	score := 0
+	for _, c := range cards {
+		if c.Rank == deck.Ace {
+			aces++
 		}
-	}()
-}
-
-type dealer struct {
-	player
-}
-
-func NewDealer() *dealer {
-	return &dealer{
-		player: player{
-			name: "Dealer",
-			hit: func(s string, ctx context.Context) bool {
-				r := rand.New(rand.NewSource(time.Now().Unix()))
-				return r.Intn(2) == 1
-			},
-		},
-	}
-}
-
-type table struct {
-	players []*player
-	deck    []deck.Card
-	cards   map[string][]deck.Card
-	end     chan struct{}
-	dealer  *dealer
-}
-
-func NewTable(pl ...*player) *table {
-	return &table{
-		players: pl,
-		deck:    deck.New(deck.Shuffle),
-		cards:   nil,
-		dealer:  NewDealer(),
-	}
-}
-
-func (t *table) Start() chan struct{} {
-	t.init()
-	t.dealer.cards = make([]deck.Card, 0, 2)
-	t.dealer.cards = append(t.dealer.cards, t.card())
-	t.cards[t.dealer.name] = t.dealer.cards
-	t.notify()
-	for _, p := range t.players {
-		p.cards = make([]deck.Card, 0, 2)
-		p.cards = append(p.cards, t.card(), t.card())
-		t.cards[p.name] = p.cards
-		t.notify()
-	}
-	for _, p := range t.players {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-		defer cancel()
-		for p.hit("Choose hit or fold", ctx) {
-			p.cards = append(p.cards, t.card())
-			t.cards[p.name] = p.cards
-			t.notify()
+		switch c.Rank {
+		case deck.Ace, deck.King, deck.Queen, deck.Jake, deck.Ten:
+			score += 10
+		default:
+			score += int(c.Rank)
 		}
 	}
-	for t.dealer.hit("Choose hit or fold", nil) {
-		t.dealer.cards = append(t.dealer.cards, t.card())
-		t.cards[t.dealer.name] = t.dealer.cards
-		t.notify()
+	for ; score > 21 && aces > 0; aces-- {
+		score -= 9
 	}
-	return t.end
+	return score
 }
 
-func (t *table) card() deck.Card {
-	d := t.deck
-	c := d[0]
-	t.deck = d[1:]
-	return c
+type Table struct {
+	ID      uuid.UUID
+	Name    string
+	Deck    []deck.Card
+	Players map[uuid.UUID]*player.Player
 }
 
-func (t *table) init() {
-	t.end = make(chan struct{})
-	t.cards = make(map[string][]deck.Card, len(t.players))
-	for _, p := range t.players {
-		t.cards[p.name] = make([]deck.Card, 0, 2)
-		p.end = t.end
+func NewTable(name string, deckOpts ...deck.Option) *Table {
+	return &Table{
+		ID:      uuid.New(),
+		Name:    name,
+		Deck:    deck.New(deckOpts...),
+		Players: make(map[uuid.UUID]*player.Player),
 	}
-	t.notify()
 }
 
-func (t *table) notify() {
-	go func() {
-		for _, p := range t.players {
-			p.table <- t.cards
-		}
-	}()
+func (t *Table) Start() (<-chan *player.Player, error) {
+	if len(t.Players) == 0 {
+		return nil, fmt.Errorf("Can't start blackjack game with 0 players")
+	}
+	t.score.init(t.Players)
+
+	return nil, nil
 }
