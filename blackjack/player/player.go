@@ -2,6 +2,7 @@ package player
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -24,13 +25,8 @@ func (p *Player) Notify(msg interface{}, ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	//Double goroutine to handle p.Notification cancel correct, when not handled inside
 	//FIXME probably leaking goroutine
-	go func() {
-		p.Notification(msg, ctx)
-		close(done)
-	}()
-	go func() {
-		<-ctx.Done()
-		close(done)
-	}()
+	fmt.Println(p.Name)
+	p.Notification(msg, ctx)
+	close(done)
 	return done
 }

@@ -3,26 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/mishuk-sk/gopher/blackjack"
-	"github.com/mishuk-sk/gopher/deck"
+	"github.com/mishuk-sk/gopher/blackjack/player"
 )
 
 func main() {
-	r := rand.New(rand.NewSource(time.Now().Unix()))
-	player := blackjack.NewPlayer("Player1", func(str string, ctx context.Context) bool {
-
-		n := r.Intn(3)
-		return n == 1
-	})
-	player.OnChange(func(m map[string][]deck.Card) {
-		for k, v := range m {
-			fmt.Printf("%s: %s\n", k, v)
-		}
-	})
-	table := blackjack.NewTable(player)
+	players := make([]*player.Player, 1)
+	for i := range players {
+		players[i] = player.New(fmt.Sprintf("Player %d", i), func(data interface{}, ctx context.Context) {
+			fmt.Println(data)
+		})
+	}
+	table := blackjack.NewTable("Table")
+	table.Add(players...)
 	table.Start()
 	<-time.After(time.Second * 3)
 }

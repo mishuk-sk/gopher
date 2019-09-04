@@ -1,7 +1,9 @@
 package blackjack
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mishuk-sk/gopher/blackjack/player"
@@ -10,11 +12,12 @@ import (
 
 type score map[uuid.UUID][]deck.Card
 
-func (s *score) init(players map[uuid.UUID]*player.Player) {
-	m := make(map[uuid.UUID][]deck.Card, len(players))
-	for id := range players {
+func (s *score) init(ids ...uuid.UUID) {
+	m := make(map[uuid.UUID][]deck.Card, len(ids))
+	for _, id := range ids {
 		m[id] = make([]deck.Card, 0, 2)
 	}
+	*s = score(m)
 }
 
 func (s score) add(id uuid.UUID, card deck.Card) (uuid.UUID, error) {
@@ -65,11 +68,74 @@ func NewTable(name string, deckOpts ...deck.Option) *Table {
 	}
 }
 
+func (t *Table) Add(players ...*player.Player) {
+	for _, p := range players {
+		t.Players[p.ID] = p
+	}
+}
+
 func (t *Table) Start() (<-chan *player.Player, error) {
 	if len(t.Players) == 0 {
 		return nil, fmt.Errorf("Can't start blackjack game with 0 players")
 	}
-	t.score.init(t.Players)
-
+	t.Deck = deck.Shuffle(t.Deck)
+	dealer := player.New("Dealer", func(interface{}, context.Context) {})
+	handleGame(t, dealer)
 	return nil, nil
+}
+
+func handleGame(t *Table, dealer *player.Player) error {
+
+	ids := make([]uuid.UUID, 0, len(t.Players)+1)
+	for _, p := range t.Players {
+		ids = append(ids, p.ID)
+	}
+	ids = append(ids, dealer.ID)
+	var sc score
+	sc.init(ids...)
+	card, err := getCard(&t.Deck)
+	if err != nil {
+		return err
+	}
+	_, err = sc.add(dealer.ID, card)
+	if err != nil {
+		panic(err)
+	}
+	notify(sc, t.Players)
+	for i := 0; i < 2; i++ {
+		for _, p := range t.Players {
+			card, err := getCard(&t.Deck)
+			if err != nil {
+				panic(err)
+			}
+			_, err = sc.add(p.ID, card)
+			if err != nil {
+				panic(err)
+			}
+			notify(sc, t.Players)
+		}
+	}
+	return nil
+}
+
+func notify(data interface{}, players map[uuid.UUID]*player.Player) {
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
+	for _, p := range players {
+		p.Notify(data, ctx)
+	}
+}
+
+func getCard(d *[]deck.Card) (deck.Card, error) {
+	nd := *d
+	if len(nd) == 0 {
+		return deck.Card{}, fmt.Errorf("Can't get card from empty deck")
+	}
+	card := nd[0]
+	if len(nd) > 1 {
+		nd = nd[1:]
+	} else {
+		nd = []deck.Card{}
+	}
+	*d = nd
+	return card, nil
 }
