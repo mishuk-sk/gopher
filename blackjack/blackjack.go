@@ -1,29 +1,23 @@
 package blackjack
 
 import (
-	"context"
 	"fmt"
-	"math/rand"
-	"time"
 
 	"github.com/mishuk-sk/gopher/deck"
 )
 
 type Player struct {
-	Cards        []deck.Card
-	Notification func(msg interface{}, ctx context.Context)
-	Hit          func() bool
+	Cards []deck.Card
 }
 
-func NewPlayer(notification func(msg interface{}, ctx context.Context), hit func() bool) *Player {
-	return &Player{
-		Notification: notification,
-		Hit:          hit,
+func NewPlayer() Player {
+	return Player{
+		Cards: []deck.Card{},
 	}
 }
 
 //GiveCard adds card to player's cards and returns current score
-func GiveCard(p *Player, card deck.Card) int {
+func (p *Player) GiveCard(card deck.Card) int {
 	p.Cards = append(p.Cards, card)
 	return calcScore(p.Cards)
 }
@@ -47,15 +41,11 @@ func calcScore(cards []deck.Card) int {
 	}
 	return score
 }
-
-func Notify(p *Player, msg interface{}, ctx context.Context) {
-	//Double goroutine to handle p.Notification cancel correct, when not handled inside
-	//FIXME probably leaking goroutine
-	go func() {
-		p.Notification(msg, ctx)
-	}()
+func (p Player) Notify(data interface{}) {
+	fmt.Println(data)
 }
 
+/*
 type Game struct {
 	Deck    deck.Deck
 	Players []*Player
@@ -107,4 +97,76 @@ func notifyPlayers(data interface{}, players ...*Player) {
 			p.Notification(data, ctx)
 		}()
 	}
+}
+*/
+const (
+	StatePlayerTurn = iota
+	StateDealerTurn
+	StateHandOver
+)
+
+type GameState struct {
+	Deck   deck.Deck
+	State  int
+	Player Player
+	Dealer Player
+}
+
+func (gs *GameState) CurrentPlayer() *Player {
+	switch gs.State {
+	case StatePlayerTurn:
+		return &gs.Player
+	case StateDealerTurn:
+		return &gs.Dealer
+	default:
+		panic("Not a turn")
+	}
+}
+
+func Start() {
+	gs := GameState{
+		Deck:   deck.New(deck.AddDecks(2), deck.Shuffle),
+		Player: NewPlayer(),
+		Dealer: NewPlayer(),
+	}
+	gs = Deal(gs)
+	gs.Player.Notify(gs.Dealer)
+	for gs.State == StatePlayerTurn {
+		fmt.Println("Choose to hit or stay")
+		var in string
+		fmt.Scanf("%s", &in)
+		switch in {
+		case "h":
+			gs = Hit(gs)
+		case "s":
+			gs = Stay(gs)
+		}
+	}
+	for gs.State == StateDealerTurn {
+		gs = Stay(gs)
+	}
+	fmt.Println(gs.Player)
+	fmt.Println(gs.Dealer)
+}
+
+func Deal(gs GameState) GameState {
+	for i := 0; i < 2; i++ {
+		for _, p := range []*Player{&gs.Player, &gs.Dealer} {
+			c, _ := gs.Deck.Card()
+			p.GiveCard(c)
+		}
+	}
+	gs.State = StatePlayerTurn
+	return gs
+}
+
+func Hit(gs GameState) GameState {
+	c, _ := gs.Deck.Card()
+	gs.CurrentPlayer().GiveCard(c)
+	return gs
+}
+
+func Stay(gs GameState) GameState {
+	gs.State++
+	return gs
 }
