@@ -3,33 +3,29 @@ package blackjack
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/mishuk-sk/gopher/blackjack/player"
 	"github.com/mishuk-sk/gopher/deck"
 )
 
-type score map[uuid.UUID][]deck.Card
-
-func (s *score) init(ids ...uuid.UUID) {
-	m := make(map[uuid.UUID][]deck.Card, len(ids))
-	for _, id := range ids {
-		m[id] = make([]deck.Card, 0, 2)
-	}
-	*s = score(m)
+type Player struct {
+	Cards        []deck.Card
+	Notification func(msg interface{}, ctx context.Context)
+	Hit          func() bool
 }
 
-func (s score) add(id uuid.UUID, card deck.Card) (uuid.UUID, error) {
-	if _, ok := s[id]; !ok {
-		return uuid.Nil, fmt.Errorf("Can't find user with id %s", id)
+func NewPlayer(notification func(msg interface{}, ctx context.Context), hit func() bool) *Player {
+	return &Player{
+		Notification: notification,
+		Hit:          hit,
 	}
-	s[id] = append(s[id], card)
-	sc := calcScore(s[id])
-	if sc == 21 {
-		return id, nil
-	}
-	return uuid.Nil, nil
+}
+
+//GiveCard adds card to player's cards and returns current score
+func GiveCard(p *Player, card deck.Card) int {
+	p.Cards = append(p.Cards, card)
+	return calcScore(p.Cards)
 }
 
 func calcScore(cards []deck.Card) int {
@@ -52,90 +48,63 @@ func calcScore(cards []deck.Card) int {
 	return score
 }
 
-type Table struct {
-	ID      uuid.UUID
-	Name    string
-	Deck    []deck.Card
-	Players map[uuid.UUID]*player.Player
+func Notify(p *Player, msg interface{}, ctx context.Context) {
+	//Double goroutine to handle p.Notification cancel correct, when not handled inside
+	//FIXME probably leaking goroutine
+	go func() {
+		p.Notification(msg, ctx)
+	}()
 }
 
-func NewTable(name string, deckOpts ...deck.Option) *Table {
-	return &Table{
-		ID:      uuid.New(),
-		Name:    name,
+type Game struct {
+	Deck    deck.Deck
+	Players []*Player
+}
+
+func NewGame(name string, deckOpts ...deck.Option) *Game {
+	return &Game{
 		Deck:    deck.New(deckOpts...),
-		Players: make(map[uuid.UUID]*player.Player),
+		Players: []*Player{},
 	}
 }
 
-func (t *Table) Add(players ...*player.Player) {
-	for _, p := range players {
-		t.Players[p.ID] = p
-	}
-}
-
-func (t *Table) Start() (<-chan *player.Player, error) {
+func (t *Game) Start() (<-chan *Player, error) {
 	if len(t.Players) == 0 {
 		return nil, fmt.Errorf("Can't start blackjack game with 0 players")
 	}
 	t.Deck = deck.Shuffle(t.Deck)
-	dealer := player.New("Dealer", func(interface{}, context.Context) {})
+	dealer := NewPlayer(func(interface{}, context.Context) {}, func() bool {
+		r := rand.New(rand.NewSource(time.Now().Unix()))
+		return r.Intn(3) == 0
+	})
 	handleGame(t, dealer)
 	return nil, nil
 }
 
-func handleGame(t *Table, dealer *player.Player) error {
-
-	ids := make([]uuid.UUID, 0, len(t.Players)+1)
-	for _, p := range t.Players {
-		ids = append(ids, p.ID)
-	}
-	ids = append(ids, dealer.ID)
-	var sc score
-	sc.init(ids...)
-	card, err := getCard(&t.Deck)
+func handleGame(g *Game, dealer *Player) error {
+	deck := &g.Deck
+	card, err := deck.Card()
 	if err != nil {
 		return err
 	}
-	_, err = sc.add(dealer.ID, card)
-	if err != nil {
-		panic(err)
-	}
-	notify(sc, t.Players)
+	GiveCard(dealer, card)
 	for i := 0; i < 2; i++ {
-		for _, p := range t.Players {
-			card, err := getCard(&t.Deck)
+		for _, p := range g.Players {
+			card, err := deck.Card()
 			if err != nil {
-				panic(err)
+				return err
 			}
-			_, err = sc.add(p.ID, card)
-			if err != nil {
-				panic(err)
-			}
-			notify(sc, t.Players)
+			GiveCard(p, card)
 		}
 	}
-	return nil
+	notifyPlayers("Some info", g.Players...)
 }
 
-func notify(data interface{}, players map[uuid.UUID]*player.Player) {
+func notifyPlayers(data interface{}, players ...*Player) {
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*3)
 	for _, p := range players {
-		p.Notify(data, ctx)
+		go func() {
+			p.Notification(data, ctx)
+		}()
 	}
-}
-
-func getCard(d *[]deck.Card) (deck.Card, error) {
-	nd := *d
-	if len(nd) == 0 {
-		return deck.Card{}, fmt.Errorf("Can't get card from empty deck")
-	}
-	card := nd[0]
-	if len(nd) > 1 {
-		nd = nd[1:]
-	} else {
-		nd = []deck.Card{}
-	}
-	*d = nd
-	return card, nil
 }

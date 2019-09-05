@@ -2,31 +2,52 @@ package player
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/google/uuid"
+	"github.com/mishuk-sk/gopher/deck"
 )
 
 type Player struct {
-	ID           uuid.UUID
-	Name         string
+	Cards        []deck.Card
 	Notification func(msg interface{}, ctx context.Context)
+	Hit          func() bool
 }
 
-func New(name string, notification func(msg interface{}, ctx context.Context)) *Player {
+func New(notification func(msg interface{}, ctx context.Context), hit func() bool) *Player {
 	return &Player{
-		ID:           uuid.New(),
-		Name:         name,
 		Notification: notification,
+		Hit:          hit,
 	}
 }
 
-func (p *Player) Notify(msg interface{}, ctx context.Context) <-chan struct{} {
-	done := make(chan struct{})
+//GiveCard adds card to player's cards and returns current score
+func GiveCard(p *Player, card deck.Card) int {
+	p.Cards = append(p.Cards, card)
+	return calcScore(p.Cards)
+}
+func calcScore(cards []deck.Card) int {
+	aces := 0
+	score := 0
+	for _, c := range cards {
+		if c.Rank == deck.Ace {
+			aces++
+		}
+		switch c.Rank {
+		case deck.Ace, deck.King, deck.Queen, deck.Jake, deck.Ten:
+			score += 10
+		default:
+			score += int(c.Rank)
+		}
+	}
+	for ; score > 21 && aces > 0; aces-- {
+		score -= 9
+	}
+	return score
+}
+
+func Notify(p *Player, msg interface{}, ctx context.Context) {
 	//Double goroutine to handle p.Notification cancel correct, when not handled inside
 	//FIXME probably leaking goroutine
-	fmt.Println(p.Name)
-	p.Notification(msg, ctx)
-	close(done)
-	return done
+	go func() {
+		p.Notification(msg, ctx)
+	}()
 }
