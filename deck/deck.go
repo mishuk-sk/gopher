@@ -71,7 +71,7 @@ type Option func([]Card) []Card
 
 //New creates new deck of 52 cards sorted in default order.
 //If options provided, they will be executed on deck
-func New(options ...Option) []Card {
+func New(options ...Option) Deck {
 	deck := make([]Card, 0, 52)
 	for _, i := range suits {
 		for j := minRank; j <= maxRank; j++ {
@@ -148,4 +148,23 @@ func AddDecks(n int) Option {
 
 func absRank(c Card) int {
 	return int(c.Suit)*int(maxRank) + int(c.Rank)
+}
+
+// Deck represents array of Cards
+type Deck []Card
+
+//Card return top card of deck. Error is not nil in case the deck is empty
+func (d *Deck) Card() (Card, error) {
+	deck := *d
+	if len(deck) == 0 {
+		return Card{}, fmt.Errorf("Can't get card from empty deck")
+	}
+	card := deck[0]
+	if len(deck) == 1 {
+		deck = []Card{}
+	} else {
+		deck = deck[1:]
+	}
+	*d = deck
+	return card, nil
 }
