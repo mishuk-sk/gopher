@@ -3,6 +3,7 @@ package blackjack
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mishuk-sk/gopher/deck"
@@ -17,9 +18,17 @@ type Hand []deck.Card
 func NewHand() Hand {
 	return []deck.Card{}
 }
+func (h Hand) String() string {
+	strs := make([]string, len(h))
+	for i := range strs {
+		strs[i] = h[i].String()
+	}
+	return strings.Join(strs, ", ")
+}
 
 type Player struct {
 	Hand
+	Name string
 }
 
 func (p Player) Hit() bool {
@@ -66,7 +75,9 @@ func (d Dealer) Hit() bool {
 	score := calcScore(d.Hand)
 	return score < 16 || (score == 17 && hasAce(d.Hand))
 }
-func (d Dealer) Notify(data interface{}) {}
+func (d Dealer) Notify(data interface{}) {
+	fmt.Println(data)
+}
 
 func hasAce(cards []deck.Card) bool {
 	for i := range cards {
@@ -78,9 +89,8 @@ func hasAce(cards []deck.Card) bool {
 }
 
 //GiveCard adds card to player's cards and returns current score
-func GiveCard(h *Hand, card deck.Card) int {
+func GiveCard(h *Hand, card deck.Card) {
 	*h = append(*h, card)
-	return calcScore(*h)
 }
 
 const (
@@ -122,9 +132,11 @@ func Start() {
 	participants := []Player{
 		Player{
 			Hand: NewHand(),
+			Name: "Player1",
 		},
 		Player{
 			Hand: NewHand(),
+			Name: "Player2",
 		},
 	}
 	gs := GameState{
@@ -133,30 +145,87 @@ func Start() {
 		Dealer:  Dealer{NewHand()},
 	}
 	gs = Deal(gs)
+
+	for gs.State == StatePlayerTurn {
+		ctx, close := context.WithTimeout(context.Background(), time.Second*5)
+
+		p := gs.CurrentPlayer().(Player)
+		p.Notify(fmt.Sprintf("%s: %s\n Score:%d\n", p.Name, p.Hand, calcScore(p.Hand)))
+		for hitStay(ctx, gs.CurrentPlayer()) {
+			gs = Hit(gs)
+			p := gs.CurrentPlayer().(Player)
+			p.Notify(fmt.Sprintf("%s: %s\n Score:%d\n", p.Name, p.Hand, calcScore(p.Hand)))
+			close()
+			ctx, close = context.WithTimeout(context.Background(), time.Second*5)
+		}
+		gs = Stay(gs)
+		close()
+	}
 	ctx, close := context.WithTimeout(context.Background(), time.Second*5)
 	defer close()
-	for gs.State == StatePlayerTurn {
-		for hitStay(ctx, gs.CurrentPlayer()) {
-			gs = Hit(gs)
-			close()
-			ctx, close = context.WithTimeout(context.Background(), time.Second*5)
-		}
-		gs = Stay(gs)
-	}
-	close()
-	ctx, close = context.WithTimeout(context.Background(), time.Second*5)
-	defer close()
 	for gs.State == StateDealerTurn {
+
 		for hitStay(ctx, gs.CurrentPlayer()) {
 			gs = Hit(gs)
+			p := gs.CurrentPlayer().(Dealer)
+			p.Notify(fmt.Sprintf("%s: %s\n Score:%d\n", "Dealer", p.Hand, calcScore(p.Hand)))
 			close()
 			ctx, close = context.WithTimeout(context.Background(), time.Second*5)
 		}
+
+		p := gs.CurrentPlayer().(Dealer)
 		gs = Stay(gs)
+		p.Notify(fmt.Sprintf("%s: %s\n Score:%d\n", "Dealer", p.Hand, calcScore(p.Hand)))
 	}
 	close()
-	fmt.Println(gs.Players)
-	fmt.Println(gs.Dealer)
+	gs = EndGame(gs)
+}
+
+func EndGame(gs GameState) GameState {
+	type PlayerScore struct {
+		name  string
+		score int
+	}
+	scores := make([]PlayerScore, len(gs.Players)+1)
+	i := 0
+	max := 0
+	maxI := []int{}
+	for i = 0; i < len(gs.Players); i++ {
+		scores[i] = PlayerScore{
+			gs.Players[i].Name,
+			calcScore(gs.Players[i].Hand),
+		}
+		sc := truncateScore(scores[i].score)
+		if sc >= max {
+			maxI = append(maxI, i)
+			max = sc
+		}
+	}
+	if ds := calcScore(gs.Dealer.Hand); max < ds {
+		fmt.Printf("Dealer wins with score %d.\n", ds)
+	} else if ds == max {
+		fmt.Printf("Dealers has score %d, equivalent to players:\n", ds)
+		for _, i := range maxI {
+			fmt.Printf("\t%s\n", gs.Players[i].Name)
+		}
+	} else {
+		if len(maxI) > 1 {
+			fmt.Printf("Players same score have score %d:\n", max)
+			for _, i := range maxI {
+				fmt.Printf("\t%s\n", gs.Players[i].Name)
+			}
+		} else {
+			fmt.Printf("Player %s wins with score %d:\n", gs.Players[maxI[0]].Name, max)
+		}
+	}
+	return gs
+}
+
+func truncateScore(s int) int {
+	if s > 21 {
+		return 0
+	}
+	return s
 }
 
 func Deal(gs GameState) GameState {
