@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -37,8 +38,13 @@ func prepareTestDirTree(dirs []directory) (string, error) {
 func TestWalking(t *testing.T) {
 	directories := []directory{
 		directory{
-			path:  "tmp",
-			files: []string{"top.txt", "bot.txt"},
+			path: "tmp",
+			files: []string{"birthday_001.txt",
+				"birthday_002.txt",
+				"birthday_003.txt",
+				"christmas 2016 (1 of 100).txt",
+				"christmas 2016 (2 of 100).txt",
+				"christmas 2016 (3 of 100).txt"},
 		},
 	}
 	tmpDir, err := prepareTestDirTree(directories)
@@ -47,15 +53,20 @@ func TestWalking(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	os.Chdir(tmpDir)
-	if err := filepath.Walk(".", walk); err != nil {
+	if err := filepath.Walk(".", walkFunc(rename)); err != nil {
 		t.Fatalf("Error during walking. Err: %v\n", err)
 	}
-	if err := filepath.Walk(".", outputWalk); err != nil {
+	if err := filepath.Walk(".", outputWalk(t)); err != nil {
 		t.Fatalf("Error during walking. Err: %v\n", err)
 	}
 }
 
-func outputWalk(path string, info os.FileInfo, err error) error {
-	fmt.Printf("visited file or directory: %s\n", path)
-	return nil
+func outputWalk(t *testing.T) filepath.WalkFunc {
+	var reg = regexp.MustCompile(`(.+?)_([0-9]+)(.+)`)
+	return func(path string, info os.FileInfo, err error) error {
+		if reg.MatchString(info.Name()) {
+			t.Fatalf("Unexpected match of filename %s. Expected to be raplaced.", info.Name())
+		}
+		return nil
+	}
 }
