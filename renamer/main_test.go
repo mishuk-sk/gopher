@@ -41,14 +41,16 @@ func TestWalking(t *testing.T) {
 			files: []string{"top.txt", "bot.txt"},
 		},
 	}
-	start, err := prepareTestDirTree(directories)
+	tmpDir, err := prepareTestDirTree(directories)
 	if err != nil {
 		t.Fatalf("Can't create temp directory tree: %v\n", err)
 	}
-	if err := filepath.Walk(start, walk); err != nil {
+	defer os.RemoveAll(tmpDir)
+	os.Chdir(tmpDir)
+	if err := filepath.Walk(".", walk); err != nil {
 		t.Fatalf("Error during walking. Err: %v\n", err)
 	}
-	if err := filepath.Walk(start, outputWalk); err != nil {
+	if err := filepath.Walk(".", outputWalk); err != nil {
 		t.Fatalf("Error during walking. Err: %v\n", err)
 	}
 }
