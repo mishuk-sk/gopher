@@ -14,7 +14,7 @@ var reg *regexp.Regexp
 var replaceString = "$2-$1$3"
 
 func main() {
-	p := flag.String("path", ".", "Used to provide starting point for renaming")
+	p := flag.String("path", "./sample", "Used to provide starting point for renaming")
 	regexString := flag.String("re", "(.+?)_([0-9]+)(.+)", "Used to provide regular expression for files to replace")
 	replStr := flag.String("str", "$2-$1$3", "New order of matching groups from regexp")
 	flag.Parse()
