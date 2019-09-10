@@ -14,6 +14,8 @@ func main() {
 	mux.HandleFunc("/", hello)
 	log.Fatal(http.ListenAndServe(":3000", middleware(mux, true)))
 }
+
+//FIXME doesn't work with /panic-after/ (Status:  200)
 func middleware(handler http.Handler, deb bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func(rw http.ResponseWriter) {
