@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/html"
 )
@@ -14,25 +15,29 @@ type Link struct {
 	Text string
 }
 
-//Links returns slice of Link that were read from r
-func Links(r io.Reader) ([]Link, error) {
+//Parse returns slice of Link that were read from r
+func Parse(r io.Reader) ([]Link, error) {
 	doc, err := html.Parse(r)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing html via x/net/html. Err - %s", err)
 	}
 	var links []Link
-	var dfs func(n *html.Node)
-	dfs = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "a" {
-			links = append(links, readATag(n))
-		} else {
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				dfs(c)
-			}
-		}
+	aTags := getNodes(doc)
+	for _, n := range aTags {
+		links = append(links, readATag(n))
 	}
-	dfs(doc)
 	return links, nil
+}
+
+func getNodes(n *html.Node) []*html.Node {
+	if n.Type == html.ElementNode && n.Data == "a" {
+		return []*html.Node{n}
+	}
+	var nodes []*html.Node
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		nodes = append(nodes, getNodes(c)...)
+	}
+	return nodes
 }
 
 func readATag(n *html.Node) Link {
@@ -43,16 +48,23 @@ func readATag(n *html.Node) Link {
 			link.Href = a.Val
 		}
 	}
-	var dfs func(n *html.Node)
-	dfs = func(n *html.Node) {
-		if n.Type == html.TextNode {
-			text.WriteString(n.Data)
-		}
+	getText(n, &text)
+	split := strings.FieldsFunc(
+		text.String(),
+		func(r rune) bool { return unicode.IsSpace(r) },
+	)
+	link.Text = strings.Join(split, " ")
+	return link
+}
+
+func getText(n *html.Node, buf *strings.Builder) {
+	if n.Type == html.TextNode {
+		buf.WriteString(n.Data)
+	} else if n.Type != html.ElementNode && n.Type != html.DocumentNode {
+		return
+	} else {
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			dfs(c)
+			getText(c, buf)
 		}
 	}
-	dfs(n)
-	link.Text = strings.TrimSpace(text.String())
-	return link
 }
