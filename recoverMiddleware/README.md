@@ -11,7 +11,6 @@ Given a simple web server (see `main.go`) that can potentially panic, create an 
 3. Write a "Something went wrong" message when a panic occurs.
 4. Ensure that partial writes and 200 headers aren't set even if the handler started writing to the `http.ResponseWriter` BEFORE the panic occurr# Exercise #14: Panic/Recover Middleware
 
-[![exercise status: released](https://img.shields.io/badge/exercise%20status-released-green.svg?style=for-the-badge)](https://gophercises.com/exercises/recover)
 
 ## Exercise details
 
