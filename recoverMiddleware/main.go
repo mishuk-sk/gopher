@@ -18,20 +18,50 @@ func main() {
 //FIXME doesn't work with /panic-after/ (Status:  200)
 func middleware(handler http.Handler, deb bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		defer func(rw http.ResponseWriter) {
+		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("Error: %v\n", r)
 				stack := debug.Stack()
 				log.Printf("Stack trace:\n%s\n", stack)
-				rw.WriteHeader(http.StatusInternalServerError)
+				w.WriteHeader(http.StatusInternalServerError)
 				if !deb {
-					rw.Write([]byte("Something went wrong"))
+					w.Write([]byte("Something went wrong"))
 					return
 				}
-				fmt.Fprintf(rw, "Error: %v;\nStack trace:%s\n", r, stack)
+				fmt.Fprintf(w, "Error: %v;\nStack trace:%s\n", r, stack)
 			}
-		}(w)
-		handler.ServeHTTP(w, r)
+		}()
+
+		dw := deferedWriter{w, 0, [][]byte{}}
+		handler.ServeHTTP(&dw, r)
+		flush(dw)
+	}
+}
+
+type deferedWriter struct {
+	http.ResponseWriter
+	header  int
+	message [][]byte
+}
+
+func (dw *deferedWriter) Write(ms []byte) (int, error) {
+	dw.message = append(dw.message, ms)
+	return len(dw.message), nil
+}
+
+func (dw *deferedWriter) WriteHeader(status int) {
+	dw.header = status
+}
+
+func flush(dw deferedWriter) {
+	if dw.header != 0 {
+		dw.WriteHeader(dw.header)
+	}
+	for _, b := range dw.message {
+		_, err := dw.ResponseWriter.Write(b)
+		if err != nil {
+			log.Fatalf("Can't write to original ResponseWriter. Err: %v\n", err)
+		}
 	}
 }
 
