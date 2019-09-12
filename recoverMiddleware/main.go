@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"runtime/debug"
 )
@@ -51,6 +53,21 @@ func (dw *deferedWriter) Write(ms []byte) (int, error) {
 
 func (dw *deferedWriter) WriteHeader(status int) {
 	dw.header = status
+}
+
+func (dw *deferedWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := dw.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, fmt.Errorf("Original ResponseWriter does not implement Hijacker interface")
+}
+
+func (dw *deferedWriter) Flush() {
+	if f, ok := dw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+		return
+	}
+	log.Printf("Original Response writer doesn't implement Flusher interface\n")
 }
 
 func flush(dw deferedWriter) {
